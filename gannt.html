@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carta Gantt - Sistema Etiquetado Inteligente</title>
+    <style>
+        /* Colores corporativos profesionales */
+        :root {
+            --primary-blue: #2c3e50;
+            --secondary-blue: #3498db;
+            --accent-green: #27ae60;
+            --accent-orange: #e67e22;
+            --accent-purple: #9b59b6;
+            --accent-red: #e74c3c;
+            --gray-light: #ecf0f1;
+            --gray-medium: #bdc3c7;
+            --gray-dark: #34495e;
+            --white: #ffffff;
+            --text-dark: #2c3e50;
+            --text-light: #7f8c8d;
+            --border: #e9ecef;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-dark);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: var(--white);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            color: var(--white);
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--accent-green);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 1.2em;
+            opacity: 0.95;
+            font-weight: 300;
+        }
+
+        .controls {
+            padding: 25px 30px;
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .chart-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chart-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            background: var(--secondary-blue);
+            color: var(--white);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .chart-btn:hover {
+            background: var(--primary-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+
+        .chart-btn.active {
+            background: var(--accent-green);
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        .download-btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 6px;
+            background: linear-gradient(135deg, var(--accent-red), #c0392b);
+            color: var(--white);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        .legend {
+            display: flex;
+            gap: 25px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 2px solid var(--border);
+        }
+
+        .legend-color.hito1 { background: var(--accent-green); }
+        .legend-color.hito2 { background: var(--secondary-blue); }
+        .legend-color.hito3 { background: var(--accent-orange); }
+        .legend-color.hito4 { background: var(--accent-purple); }
+
+        .canvas-container {
+            padding: 30px;
+            position: relative;
+            background: var(--white);
+            overflow-x: auto;
+        }
+
+        #ganttCanvas {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--white);
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .info-panel {
+            background: var(--gray-light);
+            padding: 30px;
+            border-radius: 0 0 20px 20px;
+        }
+
+        .info-panel h3 {
+            margin: 0 0 25px 0;
+            color: var(--text-dark);
+            font-size: 1.4em;
+            font-weight: 600;
+            border-bottom: 2px solid var(--accent-green);
+            padding-bottom: 10px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+        }
+
+        .info-card {
+            background: var(--white);
+            padding: 25px;
+            border-radius: 6px;
+            border-left: 4px solid var(--secondary-blue);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+        }
+
+        .info-card h4 {
+            margin: 0 0 20px 0;
+            color: var(--text-dark);
+            font-size: 1.2em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-card p {
+            margin: 8px 0;
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text-dark);
+        }
+
+        .resource {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .deliverable {
+            color: var(--accent-red);
+            font-style: italic;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .legend {
+                justify-content: center;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                margin: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Sistema Etiquetado Inteligente</h1>
+            <p>Planificación de Proyectos - Quick Wins & Mejora IoT-Blockchain</p>
+        </div>
+        
+        <div class="controls">
+            <div class="chart-selector">
+                <button class="chart-btn active" onclick="showChart('quickwins')">Quick Wins (16 semanas)</button>
+                <button class="chart-btn" onclick="showChart('mejora')">Proyecto Mejora (52 semanas)</button>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color hito1"></div>
+                    <span>HITO 1: Preparación</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color hito2"></div>
+                    <span>HITO 2: Desarrollo</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color hito3"></div>
+                    <span>HITO 3: Implementación</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color hito4"></div>
+                    <span>HITO 4: Escalamiento</span>
+                </div>
+            </div>
+            
+            <button class="download-btn" onclick="downloadPNG()">Descargar PNG HD</button>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="ganttCanvas" width="1600" height="800"></canvas>
+        </div>
+        
+        <div class="info-panel">
+            <h3>Resumen del Proyecto</h3>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h4>HITO 1: PREPARACIÓN</h4>
+                    <p><strong>Responsable:</strong> Gerente de Operaciones</p>
+                    <p><strong>Duración:</strong> Semanas 1-4</p>
+                    <p class="resource"><strong>Recursos:</strong> $85,000</p>
+                    <p class="deliverable"><strong>Entregable:</strong> Sistema de etiquetado operativo</p>
+                </div>
+                
+                <div class="info-card">
+                    <h4>HITO 2: DESARROLLO</h4>
+                    <p><strong>Responsable:</strong> Director de Tecnología</p>
+                    <p><strong>Duración:</strong> Semanas 5-10</p>
+                    <p class="resource"><strong>Recursos:</strong> $120,000</p>
+                    <p class="deliverable"><strong>Entregable:</strong> Aplicación móvil y base de datos</p>
+                </div>
+                
+                <div class="info-card">
+                    <h4>HITO 3: IMPLEMENTACIÓN</h4>
+                    <p><strong>Responsable:</strong> VP de Operaciones</p>
+                    <p><strong>Duración:</strong> Semanas 11-14</p>
+                    <p class="resource"><strong>Recursos:</strong> $95,000</p>
+                    <p class="deliverable"><strong>Entregable:</strong> Piloto exitoso 20% exportaciones</p>
+                </div>
+                
+                <div class="info-card">
+                    <h4>HITO 4: ESCALAMIENTO</h4>
+                    <p><strong>Responsable:</strong> Director de Calidad</p>
+                    <p><strong>Duración:</strong> Semanas 15-16</p>
+                    <p class="resource"><strong>Recursos:</strong> $75,000</p>
+                    <p class="deliverable"><strong>Entregable:</strong> Rollout completo y optimización</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración del proyecto Quick Wins
+        const quickWinsData = {
+            title: "",
+            duration: 16,
+            milestones: [
+                {
+                    id: 1,
+                    name: "HITO 1: PREPARACIÓN",
+                    color: "#27ae60",
+                    activities: [
+                        { name: "A1.1 Análisis proveedores GS1", start: 1, end: 2 },
+                        { name: "A1.2 RFP y selección proveedor", start: 2, end: 3 },
+                        { name: "A1.3 Procurement etiquetas/lectores", start: 3, end: 4 }
+                    ],
+                    responsible: "Gerente de Operaciones",
+                    resources: "$85,000",
+                    deliverable: "Sistema de etiquetado operativo"
+                },
+                {
+                    id: 2,
+                    name: "HITO 2: DESARROLLO",
+                    color: "#3498db",
+                    activities: [
+                        { name: "A2.1 Configuración códigos GS1", start: 5, end: 5 },
+                        { name: "A2.2 Setup base datos cloud", start: 5, end: 6 },
+                        { name: "A2.3 Desarrollo app móvil", start: 6, end: 8 },
+                        { name: "A2.4 Testing indicadores temp", start: 7, end: 8 }
+                    ],
+                    responsible: "Director de Tecnología",
+                    resources: "$120,000",
+                    deliverable: "Aplicación móvil y base de datos"
+                },
+                {
+                    id: 3,
+                    name: "HITO 3: IMPLEMENTACIÓN",
+                    color: "#e67e22",
+                    activities: [
+                        { name: "A3.1 Capacitación operarios", start: 9, end: 9 },
+                        { name: "A3.2 Piloto 20% exportaciones", start: 10, end: 12 },
+                        { name: "A3.3 Monitoreo y ajustes", start: 13, end: 14 }
+                    ],
+                    responsible: "VP de Operaciones",
+                    resources: "$95,000",
+                    deliverable: "Piloto exitoso 20% exportaciones"
+                },
+                {
+                    id: 4,
+                    name: "HITO 4: ESCALAMIENTO",
+                    color: "#9b59b6",
+                    activities: [
+                        { name: "A4.1 Rollout 100% operaciones", start: 15, end: 15 },
+                        { name: "A4.2 Optimización procesos", start: 15, end: 16 },
+                        { name: "A4.3 Documentación final", start: 16, end: 16 }
+                    ],
+                    responsible: "Director de Calidad",
+                    resources: "$75,000",
+                    deliverable: "Rollout completo y optimización"
+                }
+            ]
+        };
+
+        // Configuración del proyecto Mejora
+        const mejoraData = {
+            title: "",
+            duration: 52,
+            milestones: [
+                {
+                    id: 1,
+                    name: "HITO 1: ARQUITECTURA",
+                    color: "#27ae60",
+                    activities: [
+                        { name: "A1.1 Diseño arquitectura técnica", start: 1, end: 6 },
+                        { name: "A1.2 Selección stack tecnológico", start: 7, end: 9 },
+                        { name: "A1.3 Proof of Concept", start: 10, end: 15 }
+                    ],
+                    responsible: "CTO",
+                    resources: "$250,000",
+                    deliverable: "Arquitectura técnica validada"
+                },
+                {
+                    id: 2,
+                    name: "HITO 2: DESARROLLO",
+                    color: "#3498db",
+                    activities: [
+                        { name: "A2.1 Desarrollo IoT gateway", start: 16, end: 23 },
+                        { name: "A2.2 Implementación blockchain", start: 16, end: 25 },
+                        { name: "A2.3 AI ML modelo predictivo", start: 24, end: 29 },
+                        { name: "A2.4 Integración sistemas", start: 26, end: 29 }
+                    ],
+                    responsible: "Director de Desarrollo",
+                    resources: "$450,000",
+                    deliverable: "Plataforma IoT-Blockchain operativa"
+                },
+                {
+                    id: 3,
+                    name: "HITO 3: TESTING",
+                    color: "#e67e22",
+                    activities: [
+                        { name: "A3.1 Testing unitario", start: 30, end: 32 },
+                        { name: "A3.2 Testing integración", start: 33, end: 34 },
+                        { name: "A3.3 Piloto controlado", start: 35, end: 37 }
+                    ],
+                    responsible: "Director de QA",
+                    resources: "$180,000",
+                    deliverable: "Sistema validado y certificado"
+                },
+                {
+                    id: 4,
+                    name: "HITO 4: DESPLIEGUE",
+                    color: "#9b59b6",
+                    activities: [
+                        { name: "A4.1 Capacitación avanzada", start: 38, end: 41 },
+                        { name: "A4.2 Rollout fase 1 50% rutas", start: 42, end: 45 },
+                        { name: "A4.3 Rollout completo", start: 46, end: 49 }
+                    ],
+                    responsible: "Director de Operaciones",
+                    resources: "$320,000",
+                    deliverable: "Sistema desplegado 100%"
+                }
+            ]
+        };
+
+        let currentProject = quickWinsData;
+
+        // Configuración del canvas
+        const canvas = document.getElementById('ganttCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Configuración visual optimizada
+        const config = {
+            width: 1600,
+            height: 800,
+            margin: { top: 80, left: 350, right: 50, bottom: 150 },
+            rowHeight: 40,
+            weekWidth: 0, // Se calculará dinámicamente
+            headerHeight: 50,
+            colors: {
+                background: '#FFFFFF',
+                grid: '#E0E0E0',
+                text: '#333333',
+                accent: '#3498db'
+            }
+        };
+
+        function calculateWeekWidth() {
+            const availableWidth = config.width - config.margin.left - config.margin.right;
+            const minWeekWidth = 15; // Ancho mínimo por semana
+            const maxWeekWidth = 50; // Ancho máximo por semana
+            
+            let calculatedWidth = availableWidth / currentProject.duration;
+            
+            // Si el proyecto es muy largo, ajustar el canvas
+            if (calculatedWidth < minWeekWidth) {
+                config.width = Math.min(2400, currentProject.duration * minWeekWidth + config.margin.left + config.margin.right);
+                calculatedWidth = minWeekWidth;
+                // Actualizar el canvas
+                canvas.width = config.width;
+            } else if (calculatedWidth > maxWeekWidth) {
+                calculatedWidth = maxWeekWidth;
+            }
+            
+            config.weekWidth = calculatedWidth;
+        }
+
+        function drawGantt() {
+            calculateWeekWidth();
+            
+            // Limpiar canvas
+            ctx.fillStyle = config.colors.background;
+            ctx.fillRect(0, 0, config.width, config.height);
+            
+            // Dibujar título
+            ctx.fillStyle = config.colors.text;
+            ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(currentProject.title, config.width / 2, 40);
+            
+            // Dibujar encabezados de semanas
+            drawWeekHeaders();
+            
+            // Dibujar líneas de la cuadrícula
+            drawGrid();
+            
+            // Dibujar actividades
+            drawActivities();
+            
+            // Dibujar leyenda de hitos al final
+            drawMilestoneLegend();
+        }
+
+        function drawWeekHeaders() {
+            ctx.fillStyle = config.colors.text;
+            ctx.textAlign = 'center';
+            
+            // Para proyectos largos, mostrar solo cada 4 semanas o meses
+            if (currentProject.duration > 24) {
+                ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                
+                // Mostrar por meses (cada 4 semanas)
+                for (let month = 1; month <= Math.ceil(currentProject.duration / 4); month++) {
+                    const weekStart = (month - 1) * 4 + 1;
+                    const weekEnd = Math.min(month * 4, currentProject.duration);
+                    const x = config.margin.left + (weekStart - 1) * config.weekWidth;
+                    const width = (weekEnd - weekStart + 1) * config.weekWidth;
+                    
+                    ctx.fillText(`Mes ${month}`, x + width / 2, config.margin.top - 35);
+                    ctx.fillText(`(S${weekStart}-S${weekEnd})`, x + width / 2, config.margin.top - 15);
+                }
+                
+                // Líneas divisorias de meses
+                ctx.strokeStyle = config.colors.accent;
+                ctx.lineWidth = 2;
+                for (let month = 1; month < Math.ceil(currentProject.duration / 4); month++) {
+                    const week = month * 4;
+                    const x = config.margin.left + week * config.weekWidth;
+                    ctx.beginPath();
+                    ctx.moveTo(x, config.margin.top - 40);
+                    ctx.lineTo(x, config.margin.top);
+                    ctx.stroke();
+                }
+            } else {
+                // Para proyectos cortos, mostrar todas las semanas
+                ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                
+                for (let week = 1; week <= currentProject.duration; week++) {
+                    const x = config.margin.left + (week - 1) * config.weekWidth;
+                    ctx.fillText(`S${week}`, x + config.weekWidth / 2, config.margin.top - 15);
+                }
+            }
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = config.colors.grid;
+            ctx.lineWidth = 1;
+            
+            // Calcular la altura total necesaria
+            let totalActivities = 0;
+            currentProject.milestones.forEach(milestone => {
+                totalActivities += milestone.activities.length + 1; // +1 para el espacio del hito
+            });
+            
+            // Líneas verticales para semanas
+            if (currentProject.duration <= 24) {
+                // Para proyectos cortos, mostrar todas las líneas
+                for (let week = 0; week <= currentProject.duration; week++) {
+                    const x = config.margin.left + week * config.weekWidth;
+                    ctx.beginPath();
+                    ctx.moveTo(x, config.margin.top);
+                    ctx.lineTo(x, config.margin.top + (totalActivities * config.rowHeight));
+                    ctx.stroke();
+                }
+            } else {
+                // Para proyectos largos, mostrar líneas cada 4 semanas
+                for (let month = 0; month <= Math.ceil(currentProject.duration / 4); month++) {
+                    const week = month * 4;
+                    const x = config.margin.left + week * config.weekWidth;
+                    ctx.beginPath();
+                    ctx.moveTo(x, config.margin.top);
+                    ctx.lineTo(x, config.margin.top + (totalActivities * config.rowHeight));
+                    ctx.stroke();
+                }
+                
+                // Líneas más tenues para semanas individuales
+                ctx.strokeStyle = config.colors.grid + '50';
+                ctx.lineWidth = 0.5;
+                for (let week = 1; week < currentProject.duration; week++) {
+                    if (week % 4 !== 0) {
+                        const x = config.margin.left + week * config.weekWidth;
+                        ctx.beginPath();
+                        ctx.moveTo(x, config.margin.top);
+                        ctx.lineTo(x, config.margin.top + (totalActivities * config.rowHeight));
+                        ctx.stroke();
+                    }
+                }
+                ctx.strokeStyle = config.colors.grid;
+                ctx.lineWidth = 1;
+            }
+            
+            // Líneas horizontales para actividades
+            let y = config.margin.top;
+            currentProject.milestones.forEach(milestone => {
+                y += config.rowHeight; // Espacio para el nombre del hito
+                milestone.activities.forEach((activity, index) => {
+                    y += config.rowHeight;
+                    ctx.beginPath();
+                    ctx.moveTo(config.margin.left, y);
+                    ctx.lineTo(config.margin.left + (currentProject.duration * config.weekWidth), y);
+                    ctx.stroke();
+                });
+            });
+        }
+
+        function drawActivities() {
+            let y = config.margin.top;
+            
+            currentProject.milestones.forEach(milestone => {
+                // Dibujar nombre del hito
+                ctx.fillStyle = milestone.color;
+                ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(milestone.name, 20, y + 25);
+                
+                y += config.rowHeight;
+                
+                // Dibujar actividades del hito
+                milestone.activities.forEach(activity => {
+                    // Dibujar nombre de la actividad
+                    ctx.fillStyle = config.colors.text;
+                    ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                    ctx.textAlign = 'left';
+                    
+                    // Truncar texto si es muy largo
+                    let activityText = activity.name;
+                    if (activityText.length > 35) {
+                        activityText = activityText.substring(0, 32) + '...';
+                    }
+                    ctx.fillText(activityText, 40, y + 25);
+                    
+                    // Dibujar barra de la actividad
+                    const startX = config.margin.left + (activity.start - 1) * config.weekWidth;
+                    const width = (activity.end - activity.start + 1) * config.weekWidth;
+                    
+                    // Fondo de la barra
+                    ctx.fillStyle = milestone.color + '30';
+                    ctx.fillRect(startX, y + 8, width, config.rowHeight - 16);
+                    
+                    // Borde de la barra
+                    ctx.strokeStyle = milestone.color;
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(startX, y + 8, width, config.rowHeight - 16);
+                    
+                    // Texto dentro de la barra (si hay espacio)
+                    if (width > 30) {
+                        ctx.fillStyle = config.colors.text;
+                        ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                        ctx.textAlign = 'center';
+                        const textX = startX + width / 2;
+                        const textY = y + config.rowHeight / 2 + 3;
+                        
+                        // Para proyectos largos, mostrar solo duración
+                        if (currentProject.duration > 30) {
+                            const duration = activity.end - activity.start + 1;
+                            ctx.fillText(`${duration}s`, textX, textY);
+                        } else {
+                            ctx.fillText(`${activity.start}-${activity.end}`, textX, textY);
+                        }
+                    }
+                    
+                    y += config.rowHeight;
+                });
+            });
+        }
+
+        function drawMilestoneLegend() {
+            // Calcular la posición Y basada en el contenido real
+            let totalActivities = 0;
+            currentProject.milestones.forEach(milestone => {
+                totalActivities += milestone.activities.length + 1;
+            });
+            
+            const legendY = config.margin.top + (totalActivities * config.rowHeight) + 50;
+            const legendX = config.margin.left;
+            
+            // Título de la leyenda
+            ctx.fillStyle = config.colors.text;
+            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('Leyenda de Hitos:', legendX, legendY);
+            
+            // Dibujar leyenda en dos filas si es necesario
+            const itemsPerRow = Math.min(2, Math.floor((config.width - legendX) / 350));
+            currentProject.milestones.forEach((milestone, index) => {
+                const row = Math.floor(index / itemsPerRow);
+                const col = index % itemsPerRow;
+                
+                const x = legendX + col * 350;
+                const y = legendY + 25 + (row * 30);
+                
+                // Color del hito
+                ctx.fillStyle = milestone.color;
+                ctx.fillRect(x, y, 20, 20);
+                
+                // Nombre del hito
+                ctx.fillStyle = config.colors.text;
+                ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.fillText(milestone.name, x + 25, y + 15);
+            });
+        }
+
+        function showChart(chartType) {
+            // Update button states
+            document.querySelectorAll('.chart-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Cambiar proyecto actual
+            if (chartType === 'quickwins') {
+                currentProject = quickWinsData;
+            } else {
+                currentProject = mejoraData;
+            }
+            
+            // Redibujar
+            drawGantt();
+        }
+
+        function downloadPNG() {
+            // Crear un canvas temporal con mayor resolución para alta calidad
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Configurar para alta resolución (3x para máxima calidad)
+            const scale = 3;
+            tempCanvas.width = config.width * scale;
+            tempCanvas.height = config.height * scale;
+            
+            // Escalar el contexto
+            tempCtx.scale(scale, scale);
+            
+            // Copiar el contenido del canvas original
+            tempCtx.drawImage(canvas, 0, 0);
+            
+            // Crear el enlace de descarga
+            const link = document.createElement('a');
+            link.download = `Carta_Gantt_${currentProject.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+            link.href = tempCanvas.toDataURL('image/png');
+            
+            // Simular clic para descargar
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Inicializar el diagrama cuando se carga la página
+        window.addEventListener('load', drawGantt);
+
+        // Redibujar cuando se redimensiona la ventana
+        window.addEventListener('resize', () => {
+            setTimeout(drawGantt, 100);
+        });
+    </script>
+</body>
+</html>
